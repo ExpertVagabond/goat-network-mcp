@@ -4,7 +4,11 @@
 
 # goat-network-mcp
 
-MCP server for [GOAT Network](https://www.goat.network) — the BitVM-based Bitcoin L2. EVM-compatible JSON-RPC access (blocks, transactions, balances, contract reads, logs, fee history) for any AI agent.
+[![CI](https://github.com/ExpertVagabond/goat-network-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/ExpertVagabond/goat-network-mcp/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/@purplesquirrel/goat-network-mcp.svg)](https://www.npmjs.com/package/@purplesquirrel/goat-network-mcp)
+[![license](https://img.shields.io/npm/l/@purplesquirrel/goat-network-mcp.svg)](LICENSE)
+
+MCP server for [GOAT Network](https://www.goat.network) — the BitVM-based Bitcoin L2. EVM-compatible JSON-RPC access (blocks, transactions, balances, contract reads, logs, fee history) **plus** ABI-aware tx builders and native L1↔L2 bridge tools — for any AI agent.
 
 ## Networks
 
