@@ -76,7 +76,7 @@
   <div class="mark"><img src="assets/GOATNETWORK_LogoSymbol_White.png" alt="GOAT Network"></div>
   <div>
     <h1>goat-network-mcp</h1>
-    <div class="v">v0.1.0 · MIT · Node 18+</div>
+    <div class="v">v0.2.0 · MIT · Node 18+</div>
   </div>
 </header>
 
@@ -120,7 +120,7 @@
   }
 }</code></pre>
 
-<h2>16 tools</h2>
+<h2>24 tools</h2>
 <ul class="tools">
   <li><code>get_chain_info</code></li>
   <li><code>get_block</code></li>
@@ -138,15 +138,23 @@
   <li><code>estimate_gas</code></li>
   <li><code>get_logs</code></li>
   <li><code>explorer_link</code></li>
+  <li><code>build_transaction</code></li>
+  <li><code>encode_function_data</code></li>
+  <li><code>decode_function_data</code></li>
+  <li><code>decode_event_log</code></li>
+  <li><code>simulate_transaction</code></li>
+  <li><code>build_erc20_transfer</code></li>
+  <li><code>build_erc20_approve</code></li>
+  <li><code>build_contract_write</code></li>
 </ul>
 
 <h2>Battle test</h2>
 <table class="matrix">
   <thead><tr><th>Network</th><th>Tools passing</th><th>Result</th></tr></thead>
   <tbody>
-    <tr><td>mainnet</td><td>16 / 16</td><td class="ok">all green</td></tr>
-    <tr><td>testnet3</td><td>16 / 16</td><td class="ok">all green</td></tr>
-    <tr><td>localnet (anvil)</td><td>16 / 16</td><td class="ok">all green</td></tr>
+    <tr><td>mainnet</td><td>24 / 24</td><td class="ok">all green</td></tr>
+    <tr><td>testnet3</td><td>24 / 24</td><td class="ok">all green</td></tr>
+    <tr><td>localnet (anvil)</td><td>24 / 24</td><td class="ok">all green</td></tr>
   </tbody>
 </table>
 
