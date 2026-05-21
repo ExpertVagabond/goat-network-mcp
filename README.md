@@ -18,7 +18,7 @@ Native token: **BTC** (18 decimals, wei-style).
 ## Install
 
 ```bash
-npm install -g @psmedia/goat-network-mcp
+npm install -g @purplesquirrel/goat-network-mcp
 ```
 
 Or run from source:
@@ -38,7 +38,7 @@ node dist/index.js
   "mcpServers": {
     "goat-network": {
       "command": "npx",
-      "args": ["-y", "@psmedia/goat-network-mcp"],
+      "args": ["-y", "@purplesquirrel/goat-network-mcp"],
       "env": {
         "GOAT_NETWORK": "mainnet"
       }
