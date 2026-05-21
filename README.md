@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="logo.png" alt="GOAT Network" width="420">
+</p>
+
 # goat-network-mcp
 
 MCP server for [GOAT Network](https://www.goat.network) — the BitVM-based Bitcoin L2. EVM-compatible JSON-RPC access (blocks, transactions, balances, contract reads, logs, fee history) for any AI agent.

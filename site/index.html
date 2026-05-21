@@ -5,7 +5,12 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>goat-network-mcp — Bitcoin L2 MCP server</title>
 <meta name="description" content="MCP server for GOAT Network — the Bitcoin L2. EVM-compatible JSON-RPC access (blocks, txs, balances, contract reads, logs) for any AI agent.">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='28'%3E🐐%3C/text%3E%3C/svg%3E">
+<link rel="icon" type="image/png" href="assets/GOATNETWORK_LogoSymbol_White.png">
+<link rel="apple-touch-icon" href="assets/GOATNETWORK_LogoSymbol_White.png">
+<meta property="og:title" content="goat-network-mcp">
+<meta property="og:description" content="MCP server for GOAT Network — the Bitcoin L2. 16 tools, battle-tested across mainnet, testnet3, and localnet.">
+<meta property="og:image" content="assets/GOATNETWORK_LogoVari_White.png">
+<meta property="og:type" content="website">
 <style>
   :root {
     --bg: #0a0e14;
@@ -28,10 +33,11 @@
     min-height: 100vh;
   }
   .wrap { max-width: 880px; margin: 0 auto; padding: 64px 28px 96px; }
-  header { display: flex; align-items: baseline; gap: 14px; margin-bottom: 8px; }
-  header .glyph { font-size: 44px; line-height: 1; }
+  header { display: flex; align-items: center; gap: 18px; margin-bottom: 8px; }
+  header .mark { width: 56px; height: 56px; flex: 0 0 56px; }
+  header .mark img { width: 100%; height: 100%; object-fit: contain; display: block; }
   header h1 { margin: 0; font-size: 22px; letter-spacing: -0.01em; font-weight: 600; }
-  header .v { color: var(--muted); font-size: 13px; }
+  header .v { color: var(--muted); font-size: 13px; margin-top: 4px; }
   .tag {
     display: inline-block; padding: 2px 8px; border: 1px solid var(--grid);
     border-radius: 3px; font-size: 11px; color: var(--accent); margin-right: 6px;
@@ -67,7 +73,7 @@
 <div class="wrap">
 
 <header>
-  <div class="glyph">🐐</div>
+  <div class="mark"><img src="assets/GOATNETWORK_LogoSymbol_White.png" alt="GOAT Network"></div>
   <div>
     <h1>goat-network-mcp</h1>
     <div class="v">v0.1.0 · MIT · Node 18+</div>
