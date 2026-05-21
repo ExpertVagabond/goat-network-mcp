@@ -1,0 +1,50 @@
+{
+  "name": "@psmedia/goat-network-mcp",
+  "version": "0.1.0",
+  "description": "MCP server for GOAT Network — the Bitcoin L2. EVM-compatible JSON-RPC access (blocks, txs, balances, contract reads, logs) for any AI agent.",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "goat-network-mcp": "dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/index.js",
+    "lint": "tsc --noEmit"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "goat-network",
+    "bitcoin",
+    "bitcoin-l2",
+    "bitvm",
+    "ethereum",
+    "evm",
+    "json-rpc",
+    "agent"
+  ],
+  "author": "Purple Squirrel Media",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ExpertVagabond/goat-network-mcp.git"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
