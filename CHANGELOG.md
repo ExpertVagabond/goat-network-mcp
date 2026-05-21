@@ -5,6 +5,28 @@ All notable changes to `@purplesquirrel/goat-network-mcp` are documented in this
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] — 2026-05-21
+
+### Added
+
+**Wraps the entire `@goatnetwork/agentkit` action surface as MCP tools.** Total tool count jumps from 33 → 136 (43 native + 93 from agentkit).
+
+- **`src/agentkit-wrap.ts`** — `BuildOnlyEvmProvider` wallet provider that satisfies agentkit's `WalletProvider` interface. Reads route through our `RpcClient`; every write call throws a typed `UnsignedTxEmission` carrying a fully-populated EIP-1559 unsigned tx, which our wrapper surfaces as the tool response. Net effect: every agentkit action that needs a wallet works *without* the MCP ever holding keys.
+- **93 wrapped agentkit actions** registered under their native namespaces (`erc8004.*`, `dex.*`, `bridge.*`, `goat.bitvm2.*`, `goat.x402.*`, `wallet.*`, `wgbtc.*`, `goat_token.*`, `oft.*`, `bitcoin.*`, `erc721.*`).
+- **`src/tools/erc8004.ts`** — 10 native ERC-8004 tools (parallel to the agentkit `erc8004.*` set; ours run independent of the agentkit dep, providing redundancy and a different surface):
+  - `agent_identity_addresses`, `agent_lookup`, `agent_get_metadata`, `agent_get_reputation`, `agent_get_clients`
+  - `build_agent_register`, `build_agent_set_uri`, `build_agent_set_metadata`, `build_agent_give_feedback`, `build_agent_revoke_feedback`
+- ERC-8004 contract addresses added to `networks.ts` (`ERC8004_CONTRACTS`): identity + reputation registries for mainnet and testnet3, source from `GOATNetwork/agentkit plugins/erc8004/addresses.ts`.
+
+### Fixed (upstream workaround)
+
+- **`@goatnetwork/agentkit@0.1.2` ships broken** — every internal import in `dist/` is extensionless, which Node ESM rejects. Filed upstream as [issue #2](https://github.com/GOATNetwork/agentkit/issues/2). We ship `scripts/fix-agentkit-esm.mjs` as a `postinstall` hook that walks the installed dist and rewrites every relative import to add `.js`. Idempotent (sentinel file `.esm-patched` prevents re-patching) and silent if agentkit isn't installed.
+- After patching, `import('@goatnetwork/agentkit')` exports 162 symbols cleanly, of which 95 are Action factories.
+
+### Dependencies
+
+- Added `@goatnetwork/agentkit ^0.1.2`.
+
 ## [0.3.0] — 2026-05-21
 
 ### Added
@@ -77,6 +99,7 @@ Initial release. 16 read-side tools wrapping the GOAT Network JSON-RPC.
 - **Testnet3** (chainId 48816) — `https://rpc.testnet3.goat.network` / `https://explorer.testnet3.goat.network`
 - **Localnet** — any RPC via `GOAT_RPC_URL` override (e.g. `anvil`, a private node).
 
+[0.4.0]: https://github.com/ExpertVagabond/goat-network-mcp/releases/tag/v0.4.0
 [0.3.0]: https://github.com/ExpertVagabond/goat-network-mcp/releases/tag/v0.3.0
 [0.2.0]: https://github.com/ExpertVagabond/goat-network-mcp/releases/tag/v0.2.0
 [0.1.0]: https://github.com/ExpertVagabond/goat-network-mcp/releases/tag/v0.1.0

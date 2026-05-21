@@ -1,6 +1,6 @@
 {
   "name": "@purplesquirrel/goat-network-mcp",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "MCP server for GOAT Network — the Bitcoin L2. EVM-compatible JSON-RPC access (blocks, txs, balances, contract reads, logs) for any AI agent.",
   "type": "module",
   "main": "dist/index.js",
@@ -9,6 +9,7 @@
   },
   "files": [
     "dist",
+    "scripts",
     "logo.png",
     "README.md",
     "CHANGELOG.md",
@@ -18,7 +19,8 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "start": "node dist/index.js",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "postinstall": "node scripts/fix-agentkit-esm.mjs || true"
   },
   "keywords": [
     "mcp",
@@ -39,6 +41,7 @@
     "url": "https://github.com/ExpertVagabond/goat-network-mcp.git"
   },
   "dependencies": {
+    "@goatnetwork/agentkit": "^0.1.2",
     "@modelcontextprotocol/sdk": "^1.12.1",
     "viem": "^2.50.4",
     "zod": "^3.23.8"

@@ -22,13 +22,15 @@ import { registerContractTools } from "./tools/contract.js";
 import { registerExplorerTools } from "./tools/explorer.js";
 import { registerBuildTools } from "./tools/build.js";
 import { registerBridgeTools } from "./tools/bridge.js";
+import { registerErc8004Tools } from "./tools/erc8004.js";
+import { registerAgentkitWalletActions } from "./agentkit-wrap.js";
 
 const network = resolveNetwork();
 const rpc = new RpcClient(network);
 
 const server = new McpServer({
   name: "goat-network-mcp",
-  version: "0.3.0",
+  version: "0.4.0",
 });
 
 let toolCount = 0;
@@ -60,12 +62,19 @@ registerContractTools(register, rpc);
 registerExplorerTools(register, rpc);
 registerBuildTools(register, rpc);
 registerBridgeTools(register, rpc);
+registerErc8004Tools(register, rpc);
+
+let agentkitResult: { registered: number; skipped: Array<{ name: string; reason: string }> } = {
+  registered: 0,
+  skipped: [],
+};
 
 async function main() {
+  agentkitResult = await registerAgentkitWalletActions(register, rpc);
   const transport = new StdioServerTransport();
   await server.connect(transport);
   console.error(
-    `goat-network-mcp running — ${toolCount} tools — ${network.name} (chainId ${network.chainId}) via ${network.rpcUrl}`,
+    `goat-network-mcp running — ${toolCount} tools (${agentkitResult.registered} from agentkit) — ${network.name} (chainId ${network.chainId}) via ${network.rpcUrl}`,
   );
 }
 
