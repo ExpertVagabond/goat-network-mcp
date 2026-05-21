@@ -82,6 +82,18 @@ node dist/index.js
 ### Explorer
 - **`explorer_link`** — build an explorer URL for a tx, address, or block
 
+### Build / Write (v0.2.0 — no key custody)
+- **`build_transaction`** — auto-fill an unsigned EIP-1559 tx (nonce, gas, fees, chainId) ready for an external wallet to sign
+- **`encode_function_data`** — ABI-encode a function call (accepts JSON ABI or human-readable signature)
+- **`decode_function_data`** — decode calldata back to `{functionName, args}`
+- **`decode_event_log`** — decode a raw event log into the event name + named arguments
+- **`simulate_transaction`** — dry-run via `eth_call`; returns success or a decoded revert reason
+- **`build_erc20_transfer`** — one-shot ERC-20 transfer builder (accepts decimal amount + decimals)
+- **`build_erc20_approve`** — ERC-20 approve builder; pass `"max"` for unlimited allowance
+- **`build_contract_write`** — generic write builder for any contract function
+
+Sign the returned tx in your wallet (MetaMask/Phantom/Ledger/etc), then broadcast the signed hex via `send_raw_transaction`. The MCP never holds keys.
+
 ## Security
 
 This MCP is **read-mostly**. The only write surface is `send_raw_transaction`, which broadcasts a transaction you already signed elsewhere — the server never holds keys. Run it under whatever sandbox your MCP host provides.

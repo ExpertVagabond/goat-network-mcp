@@ -13,6 +13,7 @@ export const NETWORKS: Record<string, NetworkConfig> = {
     name: "GOAT Network Alpha Mainnet",
     chainId: 2345,
     chainIdHex: "0x929",
+    // (lowercase per JSON-RPC convention; matches eth_chainId response)
     rpcUrl: "https://rpc.goat.network",
     explorerUrl: "https://explorer.goat.network",
     nativeSymbol: "BTC",
@@ -21,7 +22,7 @@ export const NETWORKS: Record<string, NetworkConfig> = {
   testnet3: {
     name: "GOAT Network Testnet3",
     chainId: 48816,
-    chainIdHex: "0xBEB0",
+    chainIdHex: "0xbeb0",
     rpcUrl: "https://rpc.testnet3.goat.network",
     explorerUrl: "https://explorer.testnet3.goat.network",
     nativeSymbol: "BTC",

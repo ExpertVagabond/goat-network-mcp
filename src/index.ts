@@ -20,13 +20,14 @@ import { registerAccountTools } from "./tools/account.js";
 import { registerTransactionTools } from "./tools/transaction.js";
 import { registerContractTools } from "./tools/contract.js";
 import { registerExplorerTools } from "./tools/explorer.js";
+import { registerBuildTools } from "./tools/build.js";
 
 const network = resolveNetwork();
 const rpc = new RpcClient(network);
 
 const server = new McpServer({
   name: "goat-network-mcp",
-  version: "0.1.0",
+  version: "0.2.0",
 });
 
 let toolCount = 0;
@@ -56,6 +57,7 @@ registerAccountTools(register, rpc);
 registerTransactionTools(register, rpc);
 registerContractTools(register, rpc);
 registerExplorerTools(register, rpc);
+registerBuildTools(register, rpc);
 
 async function main() {
   const transport = new StdioServerTransport();

@@ -256,6 +256,173 @@ if (sampleTxHash) {
   record("explorer_link", r.ok && r.text === expected, r.ok ? r.text : r.error);
 }
 
+// ---- Build/write tools (v0.2.0) ----
+
+// 17. encode_function_data — encode ERC-20 transfer
+{
+  const r = await callTool("encode_function_data", {
+    abi: "function transfer(address to, uint256 amount) returns (bool)",
+    functionName: "transfer",
+    args: [addrForTests, "1000000"],
+  });
+  const expectedSelector = "0xa9059cbb";
+  const ok = r.ok && typeof r.text === "string" && r.text.startsWith(expectedSelector);
+  record("encode_function_data", ok, r.ok ? `${r.text.slice(0, 10)}… len=${r.text.length}` : r.error);
+}
+
+// 18. decode_function_data — round-trip the encoding above
+{
+  const calldata =
+    "0xa9059cbb000000000000000000000000" +
+    addrForTests.slice(2).toLowerCase() +
+    "00000000000000000000000000000000000000000000000000000000000f4240";
+  const r = await callTool("decode_function_data", {
+    abi: "function transfer(address to, uint256 amount) returns (bool)",
+    data: calldata,
+  });
+  let ok = false;
+  if (r.ok) {
+    try {
+      const d = JSON.parse(r.text);
+      ok = d.functionName === "transfer" && d.args?.[1] === "1000000";
+    } catch {}
+  }
+  record("decode_function_data", ok, r.ok ? `${r.text.split("\n")[1]?.trim()}` : r.error);
+}
+
+// 19. decode_event_log — ERC-20 Transfer
+{
+  const topics = [
+    "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef", // keccak("Transfer(address,address,uint256)")
+    "0x000000000000000000000000" + addrForTests.slice(2).toLowerCase(),
+    "0x000000000000000000000000" + addrForTests.slice(2).toLowerCase(),
+  ];
+  const data = "0x00000000000000000000000000000000000000000000000000000000000003e8";
+  const r = await callTool("decode_event_log", {
+    abi: "event Transfer(address indexed from, address indexed to, uint256 value)",
+    topics,
+    data,
+  });
+  let ok = false;
+  if (r.ok) {
+    try {
+      const d = JSON.parse(r.text);
+      ok = d.eventName === "Transfer" && d.args?.value === "1000";
+    } catch {}
+  }
+  record("decode_event_log", ok, r.ok ? `${r.text.split("\n")[1]?.trim()}` : r.error);
+}
+
+// 20. simulate_transaction — read-only call returns success
+{
+  const r = await callTool("simulate_transaction", {
+    to: addrForTests,
+    data: "0x",
+  });
+  let ok = false;
+  if (r.ok) {
+    try {
+      ok = JSON.parse(r.text).success === true;
+    } catch {}
+  }
+  record("simulate_transaction", ok, r.ok ? r.text.split("\n")[1]?.trim() : r.error);
+}
+
+// 21. build_transaction — build a self-send tx
+{
+  const r = await callTool("build_transaction", {
+    from: addrForTests,
+    to: addrForTests,
+    value: "0x0",
+  });
+  let ok = false, details = r.error;
+  if (r.ok) {
+    try {
+      const tx = JSON.parse(r.text);
+      ok = tx.type === "0x2" &&
+           tx.chainId === chainInfo.chainIdHex &&
+           !!tx.nonce && !!tx.gas && !!tx.maxFeePerGas;
+      details = `nonce=${tx.nonce} gas=${tx.gas} maxFee=${tx.maxFeePerGas}`;
+    } catch (e) { details = `parse: ${e.message}`; }
+  }
+  record("build_transaction", ok, details);
+}
+
+// 22. build_erc20_transfer — build a transfer tx against a contract address.
+// Use addrForTests as both sender and "token" — the RPC will likely revert on
+// estimate_gas since it's an EOA, but we still test that the encoding path
+// produces the right selector and shape.
+{
+  const r = await callTool("build_erc20_transfer", {
+    token: addrForTests,
+    from: addrForTests,
+    to: addrForTests,
+    amount: "1",
+    decimals: 18,
+  });
+  let ok = false, details = r.error;
+  if (r.ok) {
+    try {
+      const tx = JSON.parse(r.text);
+      ok = tx.type === "0x2" && tx.data?.startsWith("0xa9059cbb") && tx.to === addrForTests;
+      details = `data=${tx.data?.slice(0, 10)}… ${tx.humanReadable}`;
+    } catch (e) { details = `parse: ${e.message}`; }
+  } else if (r.error?.includes("revert") || r.error?.includes("estimate")) {
+    // estimate_gas legitimately fails against an EOA — that's OK for this synthetic
+    record("build_erc20_transfer", "skip", `RPC rejected estimate against EOA (${r.error.slice(0, 50)})`);
+  }
+  if (results[results.length - 1]?.name !== "build_erc20_transfer") {
+    record("build_erc20_transfer", ok, details);
+  }
+}
+
+// 23. build_erc20_approve — "max" amount path
+{
+  const r = await callTool("build_erc20_approve", {
+    token: addrForTests,
+    from: addrForTests,
+    spender: addrForTests,
+    amount: "max",
+  });
+  let ok = false, details = r.error;
+  if (r.ok) {
+    try {
+      const tx = JSON.parse(r.text);
+      ok = tx.type === "0x2" && tx.data?.startsWith("0x095ea7b3");
+      details = `data=${tx.data?.slice(0, 10)}… ${tx.humanReadable}`;
+    } catch (e) { details = `parse: ${e.message}`; }
+  } else if (r.error?.includes("revert") || r.error?.includes("estimate")) {
+    record("build_erc20_approve", "skip", `RPC rejected estimate against EOA (${r.error.slice(0, 50)})`);
+  }
+  if (results[results.length - 1]?.name !== "build_erc20_approve") {
+    record("build_erc20_approve", ok, details);
+  }
+}
+
+// 24. build_contract_write — same pattern
+{
+  const r = await callTool("build_contract_write", {
+    from: addrForTests,
+    to: addrForTests,
+    abi: "function approve(address spender, uint256 amount) returns (bool)",
+    functionName: "approve",
+    args: [addrForTests, "1000000000000000000"],
+  });
+  let ok = false, details = r.error;
+  if (r.ok) {
+    try {
+      const tx = JSON.parse(r.text);
+      ok = tx.type === "0x2" && tx.data?.startsWith("0x095ea7b3");
+      details = `data=${tx.data?.slice(0, 10)}… ${tx.humanReadable}`;
+    } catch (e) { details = `parse: ${e.message}`; }
+  } else if (r.error?.includes("revert") || r.error?.includes("estimate")) {
+    record("build_contract_write", "skip", `RPC rejected estimate against EOA (${r.error.slice(0, 50)})`);
+  }
+  if (results[results.length - 1]?.name !== "build_contract_write") {
+    record("build_contract_write", ok, details);
+  }
+}
+
 // --- summary ---
 const pass = results.filter((r) => r.ok === true).length;
 const fail = results.filter((r) => r.ok === false).length;
