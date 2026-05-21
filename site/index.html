@@ -76,7 +76,7 @@
   <div class="mark"><img src="assets/GOATNETWORK_LogoSymbol_White.png" alt="GOAT Network"></div>
   <div>
     <h1>goat-network-mcp</h1>
-    <div class="v">v0.2.0 · MIT · Node 18+</div>
+    <div class="v">v0.3.0 · MIT · Node 18+</div>
   </div>
 </header>
 
@@ -120,7 +120,7 @@
   }
 }</code></pre>
 
-<h2>24 tools</h2>
+<h2>33 tools</h2>
 <ul class="tools">
   <li><code>get_chain_info</code></li>
   <li><code>get_block</code></li>
@@ -146,15 +146,24 @@
   <li><code>build_erc20_transfer</code></li>
   <li><code>build_erc20_approve</code></li>
   <li><code>build_contract_write</code></li>
+  <li><code>system_contracts</code></li>
+  <li><code>bridge_deposit_op_return</code></li>
+  <li><code>bridge_deposit_status</code></li>
+  <li><code>bridge_withdrawal_status</code></li>
+  <li><code>bridge_params</code></li>
+  <li><code>build_bridge_withdraw</code></li>
+  <li><code>build_bridge_rbf</code></li>
+  <li><code>build_bridge_cancel</code></li>
+  <li><code>build_bridge_refund</code></li>
 </ul>
 
 <h2>Battle test</h2>
 <table class="matrix">
   <thead><tr><th>Network</th><th>Tools passing</th><th>Result</th></tr></thead>
   <tbody>
-    <tr><td>mainnet</td><td>24 / 24</td><td class="ok">all green</td></tr>
-    <tr><td>testnet3</td><td>24 / 24</td><td class="ok">all green</td></tr>
-    <tr><td>localnet (anvil)</td><td>24 / 24</td><td class="ok">all green</td></tr>
+    <tr><td>mainnet</td><td>29 / 33 (+4 skip)</td><td class="ok">all green</td></tr>
+    <tr><td>testnet3</td><td>30 / 33 (+3 skip)</td><td class="ok">all green</td></tr>
+    <tr><td>localnet (anvil)</td><td>26 / 33 (+7 skip)</td><td class="ok">all green</td></tr>
   </tbody>
 </table>
 

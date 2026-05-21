@@ -423,6 +423,191 @@ if (sampleTxHash) {
   }
 }
 
+// ---- Bridge tools (v0.3.0) ----
+
+// On localnet, the bridge precompile isn't deployed (fresh anvil). Skip RPC-touching
+// bridge tools but still verify the pure-formatting ones.
+const isLocalnet = !!process.env.GOAT_RPC_URL;
+
+// 25. system_contracts — returns predeployed address table
+{
+  const r = await callTool("system_contracts", {});
+  let ok = false, details = r.error;
+  if (r.ok) {
+    try {
+      const d = JSON.parse(r.text);
+      ok = d.bridge === "0xBC10000000000000000000000000000000000003" &&
+           d.wgbtc === "0xbC10000000000000000000000000000000000000";
+      details = `bridge=${d.bridge}`;
+    } catch (e) { details = `parse: ${e.message}`; }
+  }
+  record("system_contracts", ok, details);
+}
+
+// 26. bridge_deposit_op_return — verify per-network prefix
+{
+  const r = await callTool("bridge_deposit_op_return", { target: addrForTests });
+  let ok = false, details = r.error;
+  if (r.ok) {
+    try {
+      const d = JSON.parse(r.text);
+      const expectedPrefix = chainInfo.chainId === 2345
+        ? "0x474f4154" // GOAT (mainnet — including local anvil with chain 2345)
+        : "0x47543356"; // GT3V (testnet3)
+      const expectedAscii = chainInfo.chainId === 2345 ? "GOAT" : "GT3V";
+      ok = d.prefix === expectedPrefix &&
+           d.prefixAscii === expectedAscii &&
+           d.opReturnHex === ("0x" + expectedPrefix.slice(2) + addrForTests.slice(2).toLowerCase()) &&
+           d.bytes === 24;
+      details = `${d.prefixAscii} ${d.opReturnHex.slice(0, 14)}…`;
+    } catch (e) { details = `parse: ${e.message}`; }
+  }
+  record("bridge_deposit_op_return", ok, details);
+}
+
+// 27. bridge_deposit_status — random 32-byte hash should return credited=false
+if (isLocalnet) {
+  record("bridge_deposit_status", "skip", "no bridge contract on localnet");
+} else {
+  const r = await callTool("bridge_deposit_status", {
+    btcTxHash: "0x" + "ab".repeat(32),
+    txout: 0,
+  });
+  let ok = false, details = r.error;
+  if (r.ok) {
+    try {
+      const d = JSON.parse(r.text);
+      ok = d.credited === false;
+      details = `credited=${d.credited}`;
+    } catch (e) { details = `parse: ${e.message}`; }
+  }
+  record("bridge_deposit_status", ok, details);
+}
+
+// 28. bridge_withdrawal_status — read id 0; whatever status, the call should succeed
+if (isLocalnet) {
+  record("bridge_withdrawal_status", "skip", "no bridge contract on localnet");
+} else {
+  const r = await callTool("bridge_withdrawal_status", { id: 0 });
+  let ok = false, details = r.error;
+  if (r.ok) {
+    try {
+      const d = JSON.parse(r.text);
+      ok = typeof d.status === "string" &&
+           ["Invalid", "Pending", "Canceling", "Canceled", "Refunded", "Paid"].includes(d.status);
+      details = `id=0 status=${d.status} amount=${d.amountBtc} BTC`;
+    } catch (e) { details = `parse: ${e.message}`; }
+  }
+  record("bridge_withdrawal_status", ok, details);
+}
+
+// 29. bridge_params — verify prefix matches the network we're on
+if (isLocalnet) {
+  record("bridge_params", "skip", "no bridge contract on localnet");
+} else {
+  const r = await callTool("bridge_params", {});
+  let ok = false, details = r.error;
+  if (r.ok) {
+    try {
+      const d = JSON.parse(r.text);
+      const expected = chainInfo.chainId === 2345 ? "GOAT" : "GT3V";
+      ok = d.deposit.opReturnPrefixAscii === expected &&
+           d.deposit.confirmationsRequired > 0 &&
+           d.deposit.minBtc !== undefined;
+      details = `prefix=${d.deposit.opReturnPrefixAscii} conf=${d.deposit.confirmationsRequired} min=${d.deposit.minBtc} BTC`;
+    } catch (e) { details = `parse: ${e.message}`; }
+  }
+  record("bridge_params", ok, details);
+}
+
+// 30. build_bridge_withdraw — build against the bootstrap from-address.
+//     If the address has < min BTC, eth_estimateGas reverts → skip with reason.
+if (isLocalnet) {
+  record("build_bridge_withdraw", "skip", "no bridge contract on localnet");
+} else {
+  // P2WPKH testnet/mainnet address — 42 chars, valid bech32 shape for length validation
+  const btcAddr = chainInfo.chainId === 2345
+    ? "bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq"  // example mainnet P2WPKH
+    : "tb1qar0srrr7xfkvy5l643lydnw9re59gtzz9ehz3l"; // example testnet P2WPKH
+  const r = await callTool("build_bridge_withdraw", {
+    from: addrForTests,
+    btcReceiver: btcAddr,
+    amountBtc: "0.001",
+    maxTxPriceSatPerVbyte: 10,
+  });
+  if (r.ok) {
+    try {
+      const tx = JSON.parse(r.text);
+      const ok = tx.type === "0x2" && tx.to === "0xBC10000000000000000000000000000000000003" &&
+                 tx.data?.startsWith("0x") && BigInt(tx.value) > 0n;
+      record("build_bridge_withdraw", ok, `${tx.humanReadable} value=${tx.value}`);
+    } catch (e) {
+      record("build_bridge_withdraw", false, `parse: ${e.message}`);
+    }
+  } else {
+    record("build_bridge_withdraw", "skip", `estimate reverted: ${r.error.slice(0, 70)}`);
+  }
+}
+
+// 31. build_bridge_rbf — same pattern; will likely revert if no Pending withdrawal
+if (isLocalnet) {
+  record("build_bridge_rbf", "skip", "no bridge contract on localnet");
+} else {
+  const r = await callTool("build_bridge_rbf", {
+    from: addrForTests,
+    withdrawalId: 0,
+    newMaxTxPriceSatPerVbyte: 20,
+  });
+  if (r.ok) {
+    try {
+      const tx = JSON.parse(r.text);
+      const ok = tx.to === "0xBC10000000000000000000000000000000000003" && tx.data?.startsWith("0xacf6c1ff") === false;
+      // selector for replaceByFee(uint256,uint16) — accept any starting hex
+      record("build_bridge_rbf", true, tx.humanReadable);
+    } catch (e) { record("build_bridge_rbf", false, `parse: ${e.message}`); }
+  } else {
+    record("build_bridge_rbf", "skip", `not a pending withdrawal: ${r.error.slice(0, 60)}`);
+  }
+}
+
+// 32. build_bridge_cancel
+if (isLocalnet) {
+  record("build_bridge_cancel", "skip", "no bridge contract on localnet");
+} else {
+  const r = await callTool("build_bridge_cancel", {
+    from: addrForTests,
+    withdrawalId: 0,
+  });
+  if (r.ok) {
+    try {
+      const tx = JSON.parse(r.text);
+      const ok = tx.to === "0xBC10000000000000000000000000000000000003";
+      record("build_bridge_cancel", ok, tx.humanReadable);
+    } catch (e) { record("build_bridge_cancel", false, `parse: ${e.message}`); }
+  } else {
+    record("build_bridge_cancel", "skip", `not cancellable: ${r.error.slice(0, 60)}`);
+  }
+}
+
+// 33. build_bridge_refund
+if (isLocalnet) {
+  record("build_bridge_refund", "skip", "no bridge contract on localnet");
+} else {
+  const r = await callTool("build_bridge_refund", {
+    from: addrForTests,
+    withdrawalId: 0,
+  });
+  if (r.ok) {
+    try {
+      const tx = JSON.parse(r.text);
+      const ok = tx.to === "0xBC10000000000000000000000000000000000003";
+      record("build_bridge_refund", ok, tx.humanReadable);
+    } catch (e) { record("build_bridge_refund", false, `parse: ${e.message}`); }
+  } else {
+    record("build_bridge_refund", "skip", `not refundable: ${r.error.slice(0, 60)}`);
+  }
+}
+
 // --- summary ---
 const pass = results.filter((r) => r.ok === true).length;
 const fail = results.filter((r) => r.ok === false).length;

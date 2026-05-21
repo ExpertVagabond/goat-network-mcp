@@ -82,6 +82,20 @@ node dist/index.js
 ### Explorer
 - **`explorer_link`** — build an explorer URL for a tx, address, or block
 
+### Bridge (v0.3.0 — GOAT-native BTC L1↔L2)
+
+The bridge contract lives at `0xBC10000000000000000000000000000000000003` on both mainnet and testnet3.
+
+- **`system_contracts`** — return the full predeployed system contract table (bridge, wgBTC, goatToken, btcBlock relay, …)
+- **`bridge_deposit_op_return`** — generate the OP_RETURN payload for a BTC L1 deposit (network-aware: `GOAT` on mainnet, `GT3V` on testnet3)
+- **`bridge_deposit_status`** — call `isDeposited(txHash, txout)` to verify a BTC deposit has been credited
+- **`bridge_withdrawal_status`** — read a withdrawal by id; returns status (`Pending`/`Canceling`/`Canceled`/`Refunded`/`Paid`), amount, tax, BTC fee rate
+- **`bridge_params`** — live deposit/withdrawal limits, tax rates, confirmation requirements
+- **`build_bridge_withdraw`** — build unsigned L2 tx calling `withdraw(btcReceiver, maxTxPriceSatPerVbyte)` with the BTC amount as msg.value
+- **`build_bridge_rbf`** — bump fee rate on a pending withdrawal
+- **`build_bridge_cancel`** — request cancellation (`cancel1`)
+- **`build_bridge_refund`** — claim refund after relayer-approved cancellation
+
 ### Build / Write (v0.2.0 — no key custody)
 - **`build_transaction`** — auto-fill an unsigned EIP-1559 tx (nonce, gas, fees, chainId) ready for an external wallet to sign
 - **`encode_function_data`** — ABI-encode a function call (accepts JSON ABI or human-readable signature)
