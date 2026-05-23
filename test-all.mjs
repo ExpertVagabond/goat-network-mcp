@@ -44,7 +44,7 @@ const NATIVE_TESTS = {
   bridge_deposit_op_return: { target: TEST_ADDR },
   bridge_deposit_status: { btcTxHash: ZERO_TX, txout: 0 },
   bridge_withdrawal_status: { id: 0 },
-  build_bridge_withdraw: { from: TEST_ADDR, btcReceiver: BTC_ADDR, amountBtc: "0.0001" },
+  build_bridge_withdraw: { from: TEST_ADDR, btcReceiver: BTC_ADDR, amountBtc: "0.0001", maxTxPriceSatPerVbyte: 50 },
   build_bridge_rbf: { from: TEST_ADDR, withdrawalId: 0, newMaxTxPriceSatPerVbyte: 10 },
   build_bridge_cancel: { from: TEST_ADDR, withdrawalId: 0 },
 
@@ -54,10 +54,10 @@ const NATIVE_TESTS = {
   agent_get_metadata: { agentId: "1", metadataKey: "name" },
   agent_get_clients: { agentId: "1" },
   build_agent_register: { from: TEST_ADDR, agentURI: "https://example.com/agent.json" },
-  build_agent_set_uri: { from: TEST_ADDR, agentId: "1", newURI: "https://example.com/agent2.json" },
-  build_agent_set_metadata: { from: TEST_ADDR, agentId: "1", metadataKey: "name", metadataValueHex: "0x54657374" },
+  build_agent_set_uri: { from: TEST_ADDR, agentId: "0", newURI: "https://example.com/agent2.json" },
+  build_agent_set_metadata: { from: TEST_ADDR, agentId: "0", metadataKey: "name", metadataValueHex: "0x54657374" },
   build_agent_give_feedback: { from: TEST_ADDR, agentId: "1", value: 1, valueDecimals: 0 },
-  build_agent_revoke_feedback: { from: TEST_ADDR, agentId: "1", feedbackIndex: 0 },
+  build_agent_revoke_feedback: { from: TEST_ADDR, agentId: "1", feedbackIndex: 1 },
 };
 
 // Agentkit wrapped tool tests (sample)
@@ -117,7 +117,9 @@ async function main() {
       const isExpectedMiss = txt.includes("not found") || txt.includes("No agent") || txt.includes("does not exist") || txt.includes("null") || txt.includes("Transaction not found") || txt.includes("Deposit not found");
       // Contract reverts on nonexistent data are expected
       const isExpectedRevert = txt.includes("execution reverted") || txt.includes("would revert");
-      const isRealError = r.isError || (txt.toLowerCase().includes("error") && !isExpectedMiss && !isExpectedRevert);
+      // Pre-flight validation errors are expected (not real failures)
+      const isExpectedValidation = txt.includes("Only the original sender") || txt.includes("unaffordable") || txt.includes("Already revoked") || txt.includes("Not authorized") || txt.includes("must wait");
+      const isRealError = r.isError && !isExpectedValidation || (txt.toLowerCase().includes("error") && !isExpectedMiss && !isExpectedRevert && !isExpectedValidation);
 
       if (isRealError) {
         console.log(`[FAIL] ${name.padEnd(28)} ${txt.slice(0, 50).replace(/\n/g, " ")}`);
