@@ -12,14 +12,20 @@ export interface NetworkConfig {
 }
 
 // ERC-8004 agent identity registries (network-specific addresses).
-// Source: GOATNetwork/agentkit plugins/erc8004/addresses.ts
+// CRITICAL: Use the ACTUAL linked registries discovered from on-chain storage.
+// The reputation registry stores its linked identity registry in storage slot 0.
+// On testnet3, agentkit's addresses.ts has the WRONG identity registry address.
+// See issue: https://github.com/GOATNetwork/agentkit/issues/4
 export const ERC8004_CONTRACTS: Record<string, { identityRegistry: string; reputationRegistry: string }> = {
   "GOAT Network Alpha Mainnet": {
+    // Mainnet: verified correctly linked (reputation slot 0 matches this identity address)
     identityRegistry: "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
     reputationRegistry: "0x8004BAa17C55a88189AE136b182e5fdA19dE9b63",
   },
   "GOAT Network Testnet3": {
-    identityRegistry: "0x556089008Fc0a60cD09390Eca93477ca254A5522",
+    // Testnet3: use the identity registry ACTUALLY linked to reputation (from slot 0)
+    // This is 0x54b8... NOT 0x5560... (agentkit's incorrect address)
+    identityRegistry: "0x54b8d8e2455946f2a5b8982283f2359812e815ce",
     reputationRegistry: "0xd9140951d8aE6E5F625a02F5908535e16e3af964",
   },
 };

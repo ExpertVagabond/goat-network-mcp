@@ -51,6 +51,9 @@ const WITHDRAWAL_STATUS = [
   "Paid",
 ] as const;
 
+// Protocol constraint: must wait 5 minutes after last update before RBF/cancel
+const WITHDRAWAL_UPDATED_DURATION_SECS = 5 * 60;
+
 // 1 satoshi = 10 gwei on GOAT L2
 const SATOSHI_WEI = 10_000_000_000n;
 const DUST_WEI = 1000n * SATOSHI_WEI;
@@ -70,6 +73,95 @@ function weiToBtc(wei: bigint): string {
   const frac = wei % 10n ** 18n;
   const fracStr = frac.toString().padStart(18, "0").replace(/0+$/, "");
   return fracStr ? `${whole}.${fracStr}` : whole.toString();
+}
+
+/**
+ * Pre-flight check for RBF/cancel operations.
+ * Returns the withdrawal status or throws a descriptive error.
+ */
+async function checkWithdrawalForModification(
+  rpc: RpcClient,
+  bridge: string,
+  withdrawalId: bigint,
+  caller: string,
+  operation: "RBF" | "cancel",
+): Promise<{
+  sender: string;
+  status: string;
+  statusIndex: number;
+  updatedAt: number;
+  amount: bigint;
+}> {
+  const data = encodeFunctionData({
+    abi: BRIDGE_ABI,
+    functionName: "withdrawals",
+    args: [withdrawalId],
+  });
+  const raw = await rpc.call<string>("eth_call", [{ to: bridge, data }, "latest"]);
+  const hex = raw.startsWith("0x") ? raw.slice(2) : raw;
+  const word = (n: number) => "0x" + hex.slice(n * 64, (n + 1) * 64);
+
+  const sender = "0x" + hex.slice(64 - 40, 64);
+  const statusIdx = Number(BigInt(word(2)));
+  const amount = BigInt(word(3));
+  const updatedAt = Number(BigInt(word(5)));
+  const status = WITHDRAWAL_STATUS[statusIdx] ?? `Unknown(${statusIdx})`;
+
+  // Check 1: Withdrawal exists
+  if (statusIdx === 0 || amount === 0n) {
+    throw new Error(
+      `Withdrawal #${withdrawalId} does not exist or is invalid. ` +
+      `Create a withdrawal first with build_bridge_withdraw.`
+    );
+  }
+
+  // Check 2: Caller is the original sender
+  if (sender.toLowerCase() !== caller.toLowerCase()) {
+    throw new Error(
+      `Only the original sender (${sender}) can ${operation} withdrawal #${withdrawalId}. ` +
+      `You provided: ${caller}`
+    );
+  }
+
+  // Check 3: Status allows modification
+  if (operation === "RBF" && statusIdx !== 1) {
+    throw new Error(
+      `Cannot RBF withdrawal #${withdrawalId}: status is "${status}" (must be "Pending"). ` +
+      (statusIdx === 5 ? "This withdrawal has already been paid out on L1." :
+       statusIdx === 3 ? "This withdrawal was canceled." :
+       statusIdx === 4 ? "This withdrawal was refunded." :
+       statusIdx === 2 ? "This withdrawal is already being canceled." :
+       "Only Pending withdrawals can be RBF'd.")
+    );
+  }
+
+  if (operation === "cancel" && statusIdx !== 1) {
+    throw new Error(
+      `Cannot cancel withdrawal #${withdrawalId}: status is "${status}" (must be "Pending"). ` +
+      (statusIdx === 5 ? "This withdrawal has already been paid out on L1." :
+       statusIdx === 3 ? "This withdrawal was already canceled." :
+       statusIdx === 4 ? "This withdrawal was refunded." :
+       statusIdx === 2 ? "This withdrawal is already being canceled." :
+       "Only Pending withdrawals can be canceled.")
+    );
+  }
+
+  // Check 4: Timing constraint (5 min since last update)
+  const nowSecs = Math.floor(Date.now() / 1000);
+  const elapsed = nowSecs - updatedAt;
+  const remaining = WITHDRAWAL_UPDATED_DURATION_SECS - elapsed;
+
+  if (remaining > 0) {
+    const mins = Math.ceil(remaining / 60);
+    const secs = remaining % 60;
+    throw new Error(
+      `Cannot ${operation} withdrawal #${withdrawalId} yet: must wait ${WITHDRAWAL_UPDATED_DURATION_SECS / 60} minutes since last update. ` +
+      `Last updated: ${new Date(updatedAt * 1000).toISOString()}. ` +
+      `Time remaining: ${mins > 0 ? `${mins}m ` : ""}${secs}s.`
+    );
+  }
+
+  return { sender, status, statusIndex: statusIdx, updatedAt, amount };
 }
 
 async function suggestFees(rpc: RpcClient): Promise<{
@@ -361,14 +453,18 @@ export function registerBridgeTools(register: Register, rpc: RpcClient) {
 
   register(
     "build_bridge_rbf",
-    "Build an unsigned L2 transaction to bump the fee rate (RBF) of a pending bridge withdrawal. Only the original sender can call this, and only after WITHDRAWAL_UPDATED_DURATION (5 min) since the last update.",
+    "Build an unsigned L2 transaction to bump the fee rate (RBF) of a pending bridge withdrawal. Pre-flight checks: (1) withdrawal exists and is Pending, (2) caller is original sender, (3) 5 minutes have passed since last update.",
     {
-      from: address,
-      withdrawalId: z.union([z.number().int().nonnegative(), z.string()]),
-      newMaxTxPriceSatPerVbyte: z.number().int().positive().max(65535),
+      from: address.describe("Must be the original sender of the withdrawal"),
+      withdrawalId: z.union([z.number().int().nonnegative(), z.string()]).describe("Withdrawal ID from the Withdraw event"),
+      newMaxTxPriceSatPerVbyte: z.number().int().positive().max(65535).describe("New max fee rate in sat/vbyte (must be higher than current)"),
     },
     async ({ from, withdrawalId, newMaxTxPriceSatPerVbyte }) => {
       const id = typeof withdrawalId === "string" ? BigInt(withdrawalId) : BigInt(withdrawalId);
+
+      // Pre-flight check: verify withdrawal state and permissions
+      const status = await checkWithdrawalForModification(rpc, BRIDGE, id, from, "RBF");
+
       const data = encodeFunctionData({
         abi: BRIDGE_ABI,
         functionName: "replaceByFee",
@@ -380,20 +476,24 @@ export function registerBridgeTools(register: Register, rpc: RpcClient) {
         BRIDGE,
         data,
         0n,
-        `bridge.replaceByFee(#${id}, ${newMaxTxPriceSatPerVbyte} sat/vB)`,
+        `bridge.replaceByFee(#${id}, ${newMaxTxPriceSatPerVbyte} sat/vB) [status: ${status.status}]`,
       );
     },
   );
 
   register(
     "build_bridge_cancel",
-    "Build an unsigned L2 transaction to request cancellation of a pending bridge withdrawal. Status moves Pending → Canceling; the relayer then either rejects (cancel2 → Canceled) or pays out anyway.",
+    "Build an unsigned L2 transaction to request cancellation of a pending bridge withdrawal. Pre-flight checks: (1) withdrawal exists and is Pending, (2) caller is original sender, (3) 5 minutes have passed since last update. Status moves Pending → Canceling; the relayer then either approves (cancel2 → Canceled, allowing refund) or pays out anyway.",
     {
-      from: address,
-      withdrawalId: z.union([z.number().int().nonnegative(), z.string()]),
+      from: address.describe("Must be the original sender of the withdrawal"),
+      withdrawalId: z.union([z.number().int().nonnegative(), z.string()]).describe("Withdrawal ID from the Withdraw event"),
     },
     async ({ from, withdrawalId }) => {
       const id = typeof withdrawalId === "string" ? BigInt(withdrawalId) : BigInt(withdrawalId);
+
+      // Pre-flight check: verify withdrawal state and permissions
+      const status = await checkWithdrawalForModification(rpc, BRIDGE, id, from, "cancel");
+
       const data = encodeFunctionData({
         abi: BRIDGE_ABI,
         functionName: "cancel1",
@@ -405,21 +505,53 @@ export function registerBridgeTools(register: Register, rpc: RpcClient) {
         BRIDGE,
         data,
         0n,
-        `bridge.cancel1(#${id})`,
+        `bridge.cancel1(#${id}) [status: ${status.status}]`,
       );
     },
   );
 
   register(
     "build_bridge_refund",
-    "Build an unsigned L2 transaction to claim a refund for a Canceled withdrawal. Returns amount + tax to the original sender. Only callable after status reaches Canceled (the relayer must have approved via cancel2).",
+    "Build an unsigned L2 transaction to claim a refund for a Canceled withdrawal. Returns amount + tax to the original sender. Pre-flight checks: (1) withdrawal exists and is Canceled, (2) caller is original sender.",
     {
-      from: address,
-      withdrawalId: z.union([z.number().int().nonnegative(), z.string()]),
+      from: address.describe("Must be the original sender of the withdrawal"),
+      withdrawalId: z.union([z.number().int().nonnegative(), z.string()]).describe("Withdrawal ID from the Withdraw event"),
     },
     async ({ from, withdrawalId }) => {
       const id = typeof withdrawalId === "string" ? BigInt(withdrawalId) : BigInt(withdrawalId);
+
+      // Pre-flight check: verify withdrawal state
       const data = encodeFunctionData({
+        abi: BRIDGE_ABI,
+        functionName: "withdrawals",
+        args: [id],
+      });
+      const raw = await rpc.call<string>("eth_call", [{ to: BRIDGE, data }, "latest"]);
+      const hex = raw.startsWith("0x") ? raw.slice(2) : raw;
+      const word = (n: number) => "0x" + hex.slice(n * 64, (n + 1) * 64);
+      const sender = "0x" + hex.slice(64 - 40, 64);
+      const statusIdx = Number(BigInt(word(2)));
+      const amount = BigInt(word(3));
+      const status = WITHDRAWAL_STATUS[statusIdx] ?? `Unknown(${statusIdx})`;
+
+      if (statusIdx === 0 || amount === 0n) {
+        throw new Error(`Withdrawal #${id} does not exist.`);
+      }
+      if (sender.toLowerCase() !== from.toLowerCase()) {
+        throw new Error(`Only the original sender (${sender}) can claim the refund.`);
+      }
+      if (statusIdx !== 3) {
+        throw new Error(
+          `Cannot refund withdrawal #${id}: status is "${status}" (must be "Canceled"). ` +
+          (statusIdx === 1 ? "Request cancellation first with build_bridge_cancel." :
+           statusIdx === 2 ? "Cancellation is pending relayer approval." :
+           statusIdx === 4 ? "Already refunded." :
+           statusIdx === 5 ? "This withdrawal was paid out on L1, not canceled." :
+           "")
+        );
+      }
+
+      const refundData = encodeFunctionData({
         abi: BRIDGE_ABI,
         functionName: "refund",
         args: [id],
@@ -428,9 +560,9 @@ export function registerBridgeTools(register: Register, rpc: RpcClient) {
         rpc,
         from,
         BRIDGE,
-        data,
+        refundData,
         0n,
-        `bridge.refund(#${id})`,
+        `bridge.refund(#${id}) [status: ${status}, amount: ${weiToBtc(amount)} BTC]`,
       );
     },
   );
