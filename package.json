@@ -1,6 +1,6 @@
 {
   "name": "@purplesquirrel/goat-network-mcp",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "MCP server for GOAT Network — the Bitcoin L2. EVM-compatible JSON-RPC access (blocks, txs, balances, contract reads, logs) for any AI agent.",
   "type": "module",
   "main": "dist/index.js",

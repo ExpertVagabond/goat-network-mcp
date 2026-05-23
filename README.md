@@ -8,7 +8,7 @@
 [![npm](https://img.shields.io/npm/v/@purplesquirrel/goat-network-mcp.svg)](https://www.npmjs.com/package/@purplesquirrel/goat-network-mcp)
 [![license](https://img.shields.io/npm/l/@purplesquirrel/goat-network-mcp.svg)](LICENSE)
 
-MCP server for [GOAT Network](https://www.goat.network) — the BitVM-based Bitcoin L2. **136 tools** total: 43 native (JSON-RPC reads, ABI-aware tx builders, native L1↔L2 bridge, ERC-8004 identity) plus 93 wrapped from [`@goatnetwork/agentkit`](https://github.com/GOATNetwork/agentkit) (DEX, BitVM2, OFT, x402 payments, wgBTC, full agentkit surface). All build-only — the MCP never holds keys; unsigned txs are returned for external signing.
+MCP server for [GOAT Network](https://www.goat.network) — the BitVM-based Bitcoin L2. **91+ tools** (up to 128 with optional services): 43 native (JSON-RPC reads, ABI-aware tx builders, native L1↔L2 bridge, ERC-8004 identity) plus 48+ wrapped from [`@goatnetwork/agentkit`](https://github.com/GOATNetwork/agentkit) (DEX, BitVM2, OFT, wgBTC, full agentkit surface). Optional services add 37 more tools (faucet, X402 payments, merchant portal). All build-only — the MCP never holds keys; unsigned txs are returned for external signing.
 
 > **Note**: `@goatnetwork/agentkit@0.1.2` ships with a broken ESM build ([upstream issue](https://github.com/GOATNetwork/agentkit/issues/2)); we ship a `postinstall` patch that fixes it. No action required from users — `npm install` runs the patcher automatically.
 
@@ -55,10 +55,13 @@ node dist/index.js
 
 ## Environment
 
-| Variable        | Default   | Description                                              |
-| --------------- | --------- | -------------------------------------------------------- |
-| `GOAT_NETWORK`  | `mainnet` | `mainnet` or `testnet3`                                  |
-| `GOAT_RPC_URL`  | —         | Override the RPC endpoint (e.g. a private/paid node)     |
+| Variable          | Default   | Description                                                |
+| ----------------- | --------- | ---------------------------------------------------------- |
+| `GOAT_NETWORK`    | `mainnet` | `mainnet` or `testnet3`                                    |
+| `GOAT_RPC_URL`    | —         | Override the RPC endpoint (e.g. a private/paid node)       |
+| `GOAT_FAUCET_URL` | —         | Faucet API base URL (enables faucet tools)                 |
+| `GOAT_X402_URL`   | —         | X402 merchant portal API URL (enables merchant/payment tools) |
+| `GOAT_X402_TOKEN` | —         | X402 access token (optional, for authenticated requests)   |
 
 ## Tools
 
