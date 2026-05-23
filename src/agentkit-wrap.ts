@@ -243,9 +243,21 @@ class BuildOnlyEvmProvider {
 }
 
 /**
- * Register every WalletProvider-based action from @goatnetwork/agentkit
- * as an MCP tool. Skips actions whose factory can't be wired with just a
- * WalletProvider (e.g. x402 actions that require a MerchantGatewayAdapter).
+ * Determine which adapter an action factory needs based on its name.
+ */
+function getAdapterType(exportName: string): "wallet" | "faucet" | "merchant" | "x402payment" {
+  const lower = exportName.toLowerCase();
+  if (lower.startsWith("faucet")) return "faucet";
+  if (lower.startsWith("merchant")) return "merchant";
+  // X402 payment actions: cancelPayment, createPayment, paymentStatus, transferPayment, submitSignature
+  if (lower.includes("payment") || lower.includes("submitsignature")) return "x402payment";
+  return "wallet";
+}
+
+/**
+ * Register every action from @goatnetwork/agentkit as an MCP tool.
+ * Supports wallet-based actions, faucet actions (if GOAT_FAUCET_URL is set),
+ * and X402 merchant actions (if GOAT_X402_URL is set).
  * Returns the count and the list of skipped names with reasons.
  */
 export async function registerAgentkitWalletActions(
@@ -271,12 +283,67 @@ export async function registerAgentkitWalletActions(
   const skipped: Array<{ name: string; reason: string }> = [];
   let registered = 0;
 
+  // Optional faucet adapter (requires GOAT_FAUCET_URL)
+  let faucetAdapter: any = null;
+  const faucetUrl = process.env.GOAT_FAUCET_URL;
+  if (faucetUrl && agentkit.HttpFaucetAdapter) {
+    try {
+      faucetAdapter = new agentkit.HttpFaucetAdapter(faucetUrl);
+    } catch (err: any) {
+      skipped.push({ name: "faucet.*", reason: `faucet adapter init failed: ${err.message}` });
+    }
+  }
+
+  // Optional X402 merchant client (requires GOAT_X402_URL)
+  let merchantClient: any = null;
+  const x402Url = process.env.GOAT_X402_URL;
+  if (x402Url && agentkit.HttpMerchantPortalClient) {
+    try {
+      merchantClient = new agentkit.HttpMerchantPortalClient(x402Url, {
+        accessToken: process.env.GOAT_X402_TOKEN,
+      });
+    } catch (err: any) {
+      skipped.push({ name: "x402.*", reason: `x402 client init failed: ${err.message}` });
+    }
+  }
+
   for (const [exportName, factory] of Object.entries(agentkit)) {
     if (!exportName.endsWith("Action") || typeof factory !== "function") continue;
 
+    const adapterType = getAdapterType(exportName);
+    let adapter: any;
+
+    // Select the appropriate adapter
+    switch (adapterType) {
+      case "faucet":
+        if (!faucetAdapter) {
+          skipped.push({ name: exportName, reason: "set GOAT_FAUCET_URL to enable faucet tools" });
+          continue;
+        }
+        adapter = faucetAdapter;
+        break;
+      case "merchant":
+        if (!merchantClient) {
+          skipped.push({ name: exportName, reason: "set GOAT_X402_URL to enable X402 merchant tools" });
+          continue;
+        }
+        adapter = merchantClient;
+        break;
+      case "x402payment":
+        // X402 payment actions may need both wallet and merchant client
+        if (!merchantClient) {
+          skipped.push({ name: exportName, reason: "set GOAT_X402_URL to enable X402 payment tools" });
+          continue;
+        }
+        adapter = { wallet, merchant: merchantClient };
+        break;
+      default:
+        adapter = wallet;
+    }
+
     let action: any;
     try {
-      action = (factory as Function)(wallet);
+      action = (factory as Function)(adapter);
     } catch (err: any) {
       skipped.push({ name: exportName, reason: `factory failed: ${err.message.slice(0, 60)}` });
       continue;
