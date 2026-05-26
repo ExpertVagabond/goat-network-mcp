@@ -4,13 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>goat-network-mcp — Bitcoin L2 MCP server</title>
-<meta name="description" content="MCP server for GOAT Network — the Bitcoin L2. EVM-compatible JSON-RPC access (blocks, txs, balances, contract reads, logs) for any AI agent.">
+<meta name="description" content="MCP server for GOAT Network — the BitVM-based Bitcoin L2. 91+ tools (up to 128 with optional services): JSON-RPC reads, ABI-aware tx builders, native L1↔L2 bridge, ERC-8004 agent identity, plus the full @goatnetwork/agentkit surface (DEX, BitVM2, wgBTC, OFT). Build-only — never holds keys.">
 <link rel="icon" type="image/png" href="assets/GOATNETWORK_LogoSymbol_White.png">
 <link rel="apple-touch-icon" href="assets/GOATNETWORK_LogoSymbol_White.png">
-<meta property="og:title" content="goat-network-mcp">
-<meta property="og:description" content="MCP server for GOAT Network — the Bitcoin L2. 16 tools, battle-tested across mainnet, testnet3, and localnet.">
+<meta property="og:title" content="goat-network-mcp — 91+ tools for the Bitcoin L2">
+<meta property="og:description" content="Model Context Protocol server for GOAT Network. 43 native tools + the full agentkit surface, up to 128 with optional services. Build-only, never holds keys.">
 <meta property="og:image" content="assets/GOATNETWORK_LogoVari_White.png">
 <meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
 <style>
   :root {
     --bg: #0a0e14;
@@ -19,7 +20,9 @@
     --accent: #f7931a;
     --green: #57d68d;
     --grid: #1a2030;
+    --panel: #0e131c;
     --code-bg: #11161f;
+    --line: #1a2030;
   }
   * { box-sizing: border-box; }
   body {
@@ -32,7 +35,7 @@
     font: 15px/1.55 ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
     min-height: 100vh;
   }
-  .wrap { max-width: 880px; margin: 0 auto; padding: 64px 28px 96px; }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 64px 28px 96px; }
   header { display: flex; align-items: center; gap: 18px; margin-bottom: 8px; }
   header .mark { width: 56px; height: 56px; flex: 0 0 56px; }
   header .mark img { width: 100%; height: 100%; object-fit: contain; display: block; }
@@ -43,10 +46,17 @@
     border-radius: 3px; font-size: 11px; color: var(--accent); margin-right: 6px;
     letter-spacing: 0.05em; text-transform: uppercase;
   }
-  .lede { color: var(--muted); margin: 18px 0 36px; max-width: 60ch; }
+  .lede { color: var(--muted); margin: 18px 0 28px; max-width: 64ch; }
+  .lede strong { color: var(--ink); font-weight: 600; }
+  .stats { display: flex; gap: 0; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; margin: 0 0 8px; }
+  .stats .cell { flex: 1; padding: 16px 18px; border-right: 1px solid var(--line); }
+  .stats .cell:last-child { border-right: 0; }
+  .stats .n { font-size: 24px; color: var(--accent); font-weight: 600; line-height: 1; }
+  .stats .k { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 6px; }
+  .note { color: var(--muted); font-size: 12.5px; margin: 10px 0 0; }
   h2 {
     font-size: 12px; letter-spacing: 0.15em; text-transform: uppercase;
-    color: var(--muted); margin: 36px 0 14px; font-weight: 500;
+    color: var(--muted); margin: 40px 0 14px; font-weight: 500;
   }
   pre {
     background: var(--code-bg); border: 1px solid var(--grid);
@@ -60,13 +70,24 @@
   th, td { padding: 8px 12px; border-bottom: 1px solid var(--grid); text-align: left; }
   th { color: var(--muted); font-weight: 500; }
   td.num { color: var(--accent); }
-  ul.tools { list-style: none; padding: 0; columns: 2; gap: 24px; column-rule: 1px solid var(--grid); }
-  ul.tools li { padding: 4px 0; break-inside: avoid; }
-  ul.tools code { color: var(--green); }
-  .matrix { font-size: 13px; }
-  .matrix td.ok { color: var(--green); }
-  footer { margin-top: 60px; color: var(--muted); font-size: 12px; }
-  @media (max-width: 600px) { ul.tools { columns: 1; } header h1 { font-size: 18px; } }
+
+  .groups { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .group { border: 1px solid var(--line); border-radius: 8px; padding: 16px 18px; background: var(--panel); break-inside: avoid; }
+  .group h3 { margin: 0 0 4px; font-size: 13px; color: var(--ink); font-weight: 600; }
+  .group h3 .badge { color: var(--accent); font-weight: 500; font-size: 11px; margin-left: 6px; }
+  .group .sub { color: var(--muted); font-size: 11.5px; margin: 0 0 10px; }
+  .group ul { list-style: none; padding: 0; margin: 0; }
+  .group li { padding: 2px 0; font-size: 12.5px; }
+  .group li code { color: var(--green); }
+  .group.opt { border-style: dashed; }
+
+  footer { margin-top: 60px; color: var(--muted); font-size: 12px; border-top: 1px solid var(--line); padding-top: 18px; }
+  @media (max-width: 640px) {
+    .groups { grid-template-columns: 1fr; }
+    .stats { flex-wrap: wrap; }
+    .stats .cell { flex: 1 1 50%; }
+    header h1 { font-size: 18px; }
+  }
 </style>
 </head>
 <body>
@@ -76,19 +97,28 @@
   <div class="mark"><img src="assets/GOATNETWORK_LogoSymbol_White.png" alt="GOAT Network"></div>
   <div>
     <h1>goat-network-mcp</h1>
-    <div class="v">v0.4.0 · MIT · Node 18+</div>
+    <div class="v">v0.4.4 · MIT · Node 18+ · @purplesquirrel/goat-network-mcp</div>
   </div>
 </header>
 
 <div>
-  <span class="tag">MCP</span><span class="tag">Bitcoin L2</span><span class="tag">EVM</span><span class="tag">JSON-RPC</span>
+  <span class="tag">MCP</span><span class="tag">Bitcoin L2</span><span class="tag">BitVM</span><span class="tag">EVM</span><span class="tag">ERC-8004</span>
 </div>
 
 <p class="lede">
   Model Context Protocol server for <a href="https://www.goat.network">GOAT Network</a> — the BitVM-based Bitcoin L2.
-  Exposes EVM-compatible JSON-RPC as 16 MCP tools so any AI agent can read chain state,
-  query balances and contracts, fetch logs, and broadcast signed transactions.
+  It exposes the chain to any AI agent: <strong>JSON-RPC reads, ABI-aware transaction builders, the native BTC L1↔L2 bridge, ERC-8004 agent identity</strong>,
+  and the full <a href="https://github.com/GOATNetwork/agentkit"><code>@goatnetwork/agentkit</code></a> action surface (DEX, BitVM2, wgBTC, OFT).
+  <strong>Build-only by design</strong> — the server never holds keys; every write returns an unsigned EIP-1559 transaction for external signing.
 </p>
+
+<div class="stats">
+  <div class="cell"><div class="n">91+</div><div class="k">tools (base)</div></div>
+  <div class="cell"><div class="n">43</div><div class="k">native</div></div>
+  <div class="cell"><div class="n">48+</div><div class="k">via agentkit</div></div>
+  <div class="cell"><div class="n">128</div><div class="k">w/ optional services</div></div>
+</div>
+<p class="note">Zero key custody · multi-network (mainnet / testnet3 / localnet) · ships a postinstall ESM patch for agentkit 0.1.2.</p>
 
 <h2>Networks</h2>
 <table>
@@ -105,6 +135,7 @@
       <td>—</td></tr>
   </tbody>
 </table>
+<p class="note">Native token: <strong>BTC</strong> (18 decimals, wei-style).</p>
 
 <h2>Install</h2>
 <pre><code>npm install -g @purplesquirrel/goat-network-mcp</code></pre>
@@ -120,61 +151,115 @@
   }
 }</code></pre>
 
-<h2>136 tools (43 native + 93 from @goatnetwork/agentkit)</h2>
-<ul class="tools">
-  <li><code>get_chain_info</code></li>
-  <li><code>get_block</code></li>
-  <li><code>get_block_by_hash</code></li>
-  <li><code>get_gas_price</code></li>
-  <li><code>get_fee_history</code></li>
-  <li><code>get_balance</code></li>
-  <li><code>get_transaction_count</code></li>
-  <li><code>get_code</code></li>
-  <li><code>get_storage_at</code></li>
-  <li><code>get_transaction</code></li>
-  <li><code>get_transaction_receipt</code></li>
-  <li><code>send_raw_transaction</code></li>
-  <li><code>eth_call</code></li>
-  <li><code>estimate_gas</code></li>
-  <li><code>get_logs</code></li>
-  <li><code>explorer_link</code></li>
-  <li><code>build_transaction</code></li>
-  <li><code>encode_function_data</code></li>
-  <li><code>decode_function_data</code></li>
-  <li><code>decode_event_log</code></li>
-  <li><code>simulate_transaction</code></li>
-  <li><code>build_erc20_transfer</code></li>
-  <li><code>build_erc20_approve</code></li>
-  <li><code>build_contract_write</code></li>
-  <li><code>system_contracts</code></li>
-  <li><code>bridge_deposit_op_return</code></li>
-  <li><code>bridge_deposit_status</code></li>
-  <li><code>bridge_withdrawal_status</code></li>
-  <li><code>bridge_params</code></li>
-  <li><code>build_bridge_withdraw</code></li>
-  <li><code>build_bridge_rbf</code></li>
-  <li><code>build_bridge_cancel</code></li>
-  <li><code>build_bridge_refund</code></li>
-</ul>
+<h2>Capabilities</h2>
+<div class="groups">
 
-<h2>Battle test</h2>
-<table class="matrix">
-  <thead><tr><th>Network</th><th>Tools passing</th><th>Result</th></tr></thead>
-  <tbody>
-    <tr><td>mainnet</td><td>29 / 33 (+4 skip)</td><td class="ok">all green</td></tr>
-    <tr><td>testnet3</td><td>30 / 33 (+3 skip)</td><td class="ok">all green</td></tr>
-    <tr><td>localnet (anvil)</td><td>26 / 33 (+7 skip)</td><td class="ok">all green</td></tr>
-  </tbody>
-</table>
+  <div class="group">
+    <h3>Chain &amp; accounts <span class="badge">native · 9</span></h3>
+    <p class="sub">EVM JSON-RPC reads over the L2.</p>
+    <ul>
+      <li><code>get_chain_info</code> · <code>get_block</code> · <code>get_block_by_hash</code></li>
+      <li><code>get_gas_price</code> · <code>get_fee_history</code></li>
+      <li><code>get_balance</code> · <code>get_transaction_count</code></li>
+      <li><code>get_code</code> · <code>get_storage_at</code></li>
+    </ul>
+  </div>
+
+  <div class="group">
+    <h3>Transactions &amp; contracts <span class="badge">native · 4</span></h3>
+    <p class="sub">Inspect, call, and broadcast.</p>
+    <ul>
+      <li><code>get_transaction</code> · <code>get_transaction_receipt</code></li>
+      <li><code>eth_call</code> · <code>get_logs</code> · <code>estimate_gas</code></li>
+      <li><code>send_raw_transaction</code> <span class="sub">(pre-signed only)</span></li>
+      <li><code>explorer_link</code></li>
+    </ul>
+  </div>
+
+  <div class="group">
+    <h3>Build / write <span class="badge">native · 8</span></h3>
+    <p class="sub">Unsigned EIP-1559 txs for external signing.</p>
+    <ul>
+      <li><code>build_transaction</code> · <code>build_contract_write</code></li>
+      <li><code>build_erc20_transfer</code> · <code>build_erc20_approve</code></li>
+      <li><code>encode_function_data</code> · <code>decode_function_data</code></li>
+      <li><code>decode_event_log</code> · <code>simulate_transaction</code></li>
+    </ul>
+  </div>
+
+  <div class="group">
+    <h3>Native BTC bridge <span class="badge">native · 9</span></h3>
+    <p class="sub">L1↔L2 deposit/withdraw, no custody.</p>
+    <ul>
+      <li><code>system_contracts</code> · <code>bridge_params</code></li>
+      <li><code>bridge_deposit_op_return</code> · <code>bridge_deposit_status</code></li>
+      <li><code>bridge_withdrawal_status</code></li>
+      <li><code>build_bridge_withdraw</code> · <code>build_bridge_rbf</code></li>
+      <li><code>build_bridge_cancel</code> · <code>build_bridge_refund</code></li>
+    </ul>
+  </div>
+
+  <div class="group">
+    <h3>ERC-8004 agent identity <span class="badge">native · 10</span></h3>
+    <p class="sub">On-chain agent registry + reputation.</p>
+    <ul>
+      <li><code>agent_lookup</code> · <code>agent_identity_addresses</code></li>
+      <li><code>agent_get_metadata</code> · <code>agent_get_reputation</code> · <code>agent_get_clients</code></li>
+      <li><code>build_agent_register</code> · <code>build_agent_set_uri</code></li>
+      <li><code>build_agent_set_metadata</code></li>
+      <li><code>build_agent_give_feedback</code> · <code>build_agent_revoke_feedback</code></li>
+    </ul>
+  </div>
+
+  <div class="group">
+    <h3>agentkit surface <span class="badge">wrapped · 48+</span></h3>
+    <p class="sub">Full <code>@goatnetwork/agentkit</code>, build-only.</p>
+    <ul>
+      <li><code>dex.*</code> — swap, quote, liquidity, positions, fees</li>
+      <li><code>goat.bitvm2.*</code> — peg-in/out, stake, pegBTC</li>
+      <li><code>wgbtc.*</code> · <code>oft.*</code> · <code>goat_token.*</code></li>
+      <li><code>wallet.*</code> · <code>erc721.*</code> · <code>bitcoin.*</code></li>
+    </ul>
+  </div>
+
+</div>
+
+<div class="groups" style="margin-top:14px">
+  <div class="group opt">
+    <h3>Optional services <span class="badge">+37</span></h3>
+    <p class="sub">Enabled by env vars — off by default.</p>
+    <ul>
+      <li><code>faucet.*</code> — set <code>GOAT_FAUCET_URL</code></li>
+      <li><code>x402.*</code> — payments &amp; merchant portal, set <code>GOAT_X402_URL</code></li>
+    </ul>
+  </div>
+  <div class="group">
+    <h3>Tested <span class="badge">126 tools · 100% pass</span></h3>
+    <p class="sub">v0.4.4 — runnable suites in-repo:</p>
+    <ul>
+      <li><code>test-126-tools</code> · <code>test-smoke</code> · <code>test-battle</code></li>
+      <li><code>test-all-comprehensive</code> · <code>test-mainnet-erc8004</code> · <code>test-writes</code></li>
+      <li>Run against mainnet, testnet3, and anvil localnet.</li>
+    </ul>
+  </div>
+</div>
+
+<h2>Security model</h2>
+<p class="lede" style="margin-top:0">
+  Read-mostly. The only write surface is <code>send_raw_transaction</code>, which broadcasts a transaction you already
+  signed elsewhere — the server never holds keys. Every <code>build_*</code> and wrapped write returns an unsigned tx;
+  sign it in your wallet (MetaMask / Phantom / Ledger), then broadcast the signed hex.
+</p>
 
 <h2>Source</h2>
 <p>
   <a href="https://github.com/ExpertVagabond/goat-network-mcp">github.com/ExpertVagabond/goat-network-mcp</a> ·
-  <a href="https://www.npmjs.com/package/@purplesquirrel/goat-network-mcp">npm</a>
+  <a href="https://www.npmjs.com/package/@purplesquirrel/goat-network-mcp">npm</a> ·
+  <a href="https://github.com/ExpertVagabond/goat-network-mcp/blob/main/CHANGELOG.md">changelog</a>
 </p>
 
 <footer>
-  Built by Purple Squirrel Media · <a href="https://modelcontextprotocol.io">MCP</a>
+  Built by Purple Squirrel Media · for <a href="https://www.goat.network">GOAT Network</a> · <a href="https://modelcontextprotocol.io">Model Context Protocol</a>
 </footer>
 
 </div>
