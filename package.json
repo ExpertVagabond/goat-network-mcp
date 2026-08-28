@@ -34,7 +34,7 @@
     "json-rpc",
     "agent"
   ],
-  "author": "Purple Squirrel Media",
+  "author": "Matthew Karsten <matthewkarstenconnects@gmail.com>",
   "license": "MIT",
   "repository": {
     "type": "git",
