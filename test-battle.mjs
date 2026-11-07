@@ -89,6 +89,12 @@ function record(name, ok, detail) {
   console.log(`  [${tag.padEnd(4)}] ${name.padEnd(26)} ${detail ?? ""}`);
 }
 
+function isSyntheticEstimateRejection(error) {
+  return error?.includes("revert") ||
+    error?.includes("estimate") ||
+    error?.includes("system executors can't send txs");
+}
+
 // 1. get_chain_info — also bootstraps chainId / latest block
 const chainInfoRes = await callTool("get_chain_info", {});
 if (!chainInfoRes.ok) {
@@ -345,7 +351,11 @@ if (sampleTxHash) {
       details = `nonce=${tx.nonce} gas=${tx.gas} maxFee=${tx.maxFeePerGas}`;
     } catch (e) { details = `parse: ${e.message}`; }
   }
-  record("build_transaction", ok, details);
+  if (!r.ok && isSyntheticEstimateRejection(r.error)) {
+    record("build_transaction", "skip", `RPC rejected synthetic estimate (${r.error.slice(0, 70)})`);
+  } else {
+    record("build_transaction", ok, details);
+  }
 }
 
 // 22. build_erc20_transfer — build a transfer tx against a contract address.
@@ -367,7 +377,7 @@ if (sampleTxHash) {
       ok = tx.type === "0x2" && tx.data?.startsWith("0xa9059cbb") && tx.to === addrForTests;
       details = `data=${tx.data?.slice(0, 10)}… ${tx.humanReadable}`;
     } catch (e) { details = `parse: ${e.message}`; }
-  } else if (r.error?.includes("revert") || r.error?.includes("estimate")) {
+  } else if (isSyntheticEstimateRejection(r.error)) {
     // estimate_gas legitimately fails against an EOA — that's OK for this synthetic
     record("build_erc20_transfer", "skip", `RPC rejected estimate against EOA (${r.error.slice(0, 50)})`);
   }
@@ -391,7 +401,7 @@ if (sampleTxHash) {
       ok = tx.type === "0x2" && tx.data?.startsWith("0x095ea7b3");
       details = `data=${tx.data?.slice(0, 10)}… ${tx.humanReadable}`;
     } catch (e) { details = `parse: ${e.message}`; }
-  } else if (r.error?.includes("revert") || r.error?.includes("estimate")) {
+  } else if (isSyntheticEstimateRejection(r.error)) {
     record("build_erc20_approve", "skip", `RPC rejected estimate against EOA (${r.error.slice(0, 50)})`);
   }
   if (results[results.length - 1]?.name !== "build_erc20_approve") {
@@ -415,7 +425,7 @@ if (sampleTxHash) {
       ok = tx.type === "0x2" && tx.data?.startsWith("0x095ea7b3");
       details = `data=${tx.data?.slice(0, 10)}… ${tx.humanReadable}`;
     } catch (e) { details = `parse: ${e.message}`; }
-  } else if (r.error?.includes("revert") || r.error?.includes("estimate")) {
+  } else if (isSyntheticEstimateRejection(r.error)) {
     record("build_contract_write", "skip", `RPC rejected estimate against EOA (${r.error.slice(0, 50)})`);
   }
   if (results[results.length - 1]?.name !== "build_contract_write") {
