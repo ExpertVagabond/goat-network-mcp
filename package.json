@@ -20,6 +20,8 @@
     "dev": "tsc --watch",
     "start": "node dist/index.js",
     "lint": "tsc --noEmit",
+    "test": "npm run test:tools",
+    "test:tools": "node test-tool-surface.mjs",
     "postinstall": "node scripts/fix-agentkit-esm.mjs || true"
   },
   "keywords": [
